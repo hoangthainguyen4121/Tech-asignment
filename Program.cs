@@ -12,7 +12,7 @@ namespace TechnicalAssignment
             var sortedQueue = new ConcurrentQueue<int>();
             var primeQueue = new ConcurrentQueue<int>();
 
-            // Source RNG for numbers
+            // ✅ Dictionary lưu nguồn RNG của từng số
             var sourceMap = new ConcurrentDictionary<int, string>();
 
             // Random generator 1,2,3:
@@ -26,33 +26,30 @@ namespace TechnicalAssignment
 
             await Task.WhenAll(producer1, producer2, producer3);
 
-            //Console.WriteLine($"Check Queue sizes before sorting -> Input: {queue.Count}");
+            Console.WriteLine($"Queue sizes before sorting -> Input: {queue.Count}");
 
             var sorter = new QueueSorter(queue, sortedQueue);
-            sorter.Process();
+            await Task.Run(() => sorter.ProcessAsync());
 
             Console.WriteLine($"Queue sizes after sorting -> Sorted: {sortedQueue.Count}");
 
-            // ✅ Run PrimeFinder & Writer B in parallel!
-            Task primeTask = Task.Run(() => {
-                var primeFinder = new QueuePrime(sortedQueue, primeQueue);
-                primeFinder.Process();
-            });
+            var primeFinder = new QueuePrime(sortedQueue, primeQueue);
+            primeFinder.Process();
 
-            Task writerTask = Task.Run(async () => {
-                var writerB = new Writer(sortedQueue, "sorted.txt");
-                await writerB.WriteToFile(sourceMap);
-            });
+            Console.WriteLine($"Queue sizes after prime filtering -> Primes: {primeQueue.Count}, Remaining Sorted: {sortedQueue.Count}");
 
-            // ✅ Wait for both to finish
-            await Task.WhenAll(primeTask, writerTask);
-
-            // ✅ Now write primes to file
+            // ✅ Ghi số nguyên tố vào "primes.txt"
             var writerA = new Writer(primeQueue, "primes.txt");
-            await writerA.WriteToFile(sourceMap);
+            var writerATask = writerA.WriteToFile(sourceMap);
+
+            // ✅ Ghi toàn bộ số đã sắp xếp vào "sorted.txt"
+            var writerB = new Writer(sortedQueue, "sorted.txt");
+            var writerBTask = writerB.WriteToFile(sourceMap);
+
+            await Task.WhenAll(writerATask, writerBTask);            
 
 
-            // Memory Usage
+            // ✅ Hiển thị Memory Usage
             Console.WriteLine($"Memory Usage: {GC.GetTotalMemory(false) / 1024} KB");
 
             Console.WriteLine("Processing Completed!");

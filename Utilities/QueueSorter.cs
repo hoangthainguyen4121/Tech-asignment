@@ -12,36 +12,51 @@ namespace TechnicalAssignment.Utilities
             _sortedQueue = sortedQueue;
         }
 
-        public void Process()
+        public async Task ProcessAsync()
         {
             int totalProcessed = 0;
 
-            while (true)
+            var numbers = new List<int>();
+            while (_queue.TryDequeue(out int number))
             {
-                List<int> batch = new List<int>();
-
-                while (batch.Count < 1000 && _queue.TryDequeue(out int number))
-                {
-                    batch.Add(number);
-                }
-
-                if (batch.Count == 0)
-                {
-                    Console.WriteLine("Sorter: Queue is empty, stopping.");
-                    break;
-                }
-
-                batch.Sort();
-                totalProcessed += batch.Count;
-
-                foreach (var num in batch)
-                {
-                    _sortedQueue.Enqueue(num);
-                }
-
-                Console.WriteLine($"Sorter processed batch: {batch.Count} numbers, sortedQueue count: {_sortedQueue.Count}");
+                numbers.Add(number);
             }
 
+            if (numbers.Count == 0)
+            {
+                Console.WriteLine("Sorter: Queue is empty, stopping.");
+                return;
+            }
+
+            int batchSize = 1000;
+            int numberOfBatches = (numbers.Count + batchSize - 1) / batchSize;
+            var batches = new List<List<int>>();
+
+            for (int i = 0; i < numberOfBatches; i++)
+            {
+                int startIndex = i * batchSize;
+                int count = Math.Min(batchSize, numbers.Count - startIndex);
+                var batch = numbers.GetRange(startIndex, count);
+                batches.Add(batch);
+            }
+
+            var sortTasks = new List<Task>();
+            foreach (var batch in batches)
+            {
+                sortTasks.Add(Task.Run(() =>
+                {
+                    batch.Sort();
+                    foreach (var num in batch)
+                    {
+                        _sortedQueue.Enqueue(num);
+                    }
+                    Console.WriteLine($"Sorter processed batch: {batch.Count} numbers, sortedQueue count: {_sortedQueue.Count}");
+                }));
+            }
+
+            await Task.WhenAll(sortTasks);
+
+            totalProcessed = numbers.Count;
             Console.WriteLine($"Sorter finished processing {totalProcessed} numbers.");
         }
     }
